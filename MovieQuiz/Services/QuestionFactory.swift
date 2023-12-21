@@ -1,12 +1,6 @@
 import Foundation
 
 class QuestionFactory: QuestionFactoryProtocol {
-    //добавления свойства с делегатом
-    weak var delegate: QuestionFactoryDelegate?
-    
-    // Массив индексов непоказанных вопросов
-    var unshownIndexes: [Int] = []
-    
     // массив вопросов
     private let questions: [QuizQuestion] = [
         QuizQuestion(
@@ -40,19 +34,25 @@ class QuestionFactory: QuestionFactoryProtocol {
             image: "Vivarium",
             correctAnswer: false)
         ]
-    
+
+    //добавления свойства с делегатом
+    weak var delegate: QuestionFactoryDelegate?
+    // Массив индексов непоказанных вопросов
+    var unshownIndexes: [Int] = []
+
     // Функция заполнения массива неиспользуемых индексов
     func refillUnshownIndexes() {
         self.unshownIndexes = Array(0..<questions.count)
     }
-    
+
     func requestNextQuestion() {
         guard let index = unshownIndexes.randomElement() else {
             delegate?.didRecieveNextQuestion(question: nil)
             return
         }
-        unshownIndexes.remove(at: <#T##Int#>)
         let question = questions[safe: index]
+
+        self.unshownIndexes = unshownIndexes.filter { $0 != index }
         delegate?.didRecieveNextQuestion(question: question)
     }
 }
