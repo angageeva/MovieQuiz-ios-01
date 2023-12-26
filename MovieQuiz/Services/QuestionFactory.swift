@@ -1,58 +1,74 @@
 import Foundation
 
 class QuestionFactory: QuestionFactoryProtocol {
-    // массив вопросов
-    private let questions: [QuizQuestion] = [
-        QuizQuestion(
-            image: "The Godfather",
-            correctAnswer: true),
-        QuizQuestion(
-            image: "The Dark Knight",
-            correctAnswer: true),
-        QuizQuestion(
-            image: "Kill Bill",
-            correctAnswer: true),
-        QuizQuestion(
-            image: "The Avengers",
-            correctAnswer: true),
-        QuizQuestion(
-            image: "Deadpool",
-            correctAnswer: true),
-        QuizQuestion(
-            image: "The Green Knight",
-            correctAnswer: true),
-        QuizQuestion(
-            image: "Old",
-            correctAnswer: false),
-        QuizQuestion(
-            image: "The Ice Age Adventures of Buck Wild",
-            correctAnswer: false),
-        QuizQuestion(
-            image: "Tesla",
-            correctAnswer: false),
-        QuizQuestion(
-            image: "Vivarium",
-            correctAnswer: false)
-        ]
+    let moviesLoader: MoviesLoading
 
     //добавления свойства с делегатом
     weak var delegate: QuestionFactoryDelegate?
+    
+    //массив фильмов, загруженных с сервера
+    private var movies: [MostPopularMovie] = []
+    
+    init(moviesLoader: MoviesLoading, delegate: QuestionFactoryDelegate?) {
+        //self.moviesLoader = moviesLoader
+        self.delegate = delegate
+    }
+
     // Массив индексов непоказанных вопросов
-    var unshownIndexes: [Int] = []
+    private var unshownIndexes: [Int] = []
 
     // Функция заполнения массива неиспользуемых индексов
     func refillUnshownIndexes() {
-        self.unshownIndexes = Array(0..<questions.count)
+        self.unshownIndexes = Array(0..<movies.count)
     }
 
     func requestNextQuestion() {
-        guard let index = unshownIndexes.randomElement() else {
-            delegate?.didRecieveNextQuestion(question: nil)
-            return
+        DispatchQueue.global().async { [weak self] in
+            guard let self = self else { return }
+            let index = (0..<self.movies.count).randomElement() ?? 0
+            
+            guard let movie = self.movies[safe: index] else { return }
+            
+            var imageData = Data()
+            var correctAnswer: Bool
+            
+            do {
+                imageData = try Data(contentsOf: movie.imageUrl)
+            } catch {
+                print("Failed to load image")
+            }
+            
+            let rating = Float(movie.rating) ?? 0
+            let questionPhrase = ["больше","меньше"].randomElement()
+            let comparingNumber = Int.random(in: 3...10)
+            let text = "Рейтинг этого фильма \(questionPhrase!) , чем \(comparingNumber)?"
+            if questionPhrase == "больше" {
+                correctAnswer = rating > Float(comparingNumber)
+            } else {
+                correctAnswer = rating < Float(comparingNumber)
+            }
+            
+            let question = QuizQuestion(image: imageData,
+                                        text: text,
+                                        correctAnswer: correctAnswer)
+            
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.delegate?.didRecieveNextQuestion(question: question)
+            }
         }
-        let question = questions[safe: index]
-
-        self.unshownIndexes = unshownIndexes.filter { $0 != index }
-        delegate?.didRecieveNextQuestion(question: question)
+    }
+    
+    func loadData() {
+        moviesLoader.loadMovies{ [weak self] result in
+            guard let self = self else { return }
+            switch result {
+            case .success(let mostPopularMovies):
+                self.movies = mostPopularMovies.items
+                self.delegate?.didLoadDataFromserver()
+            case .failure(let error):
+                self.delegate?.didFailToLoadData(with: error)
+            }
+        }
     }
 }
