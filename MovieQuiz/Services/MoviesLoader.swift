@@ -9,8 +9,10 @@ struct MoviesLoader: MoviesLoading {
     private let networkClient = NetworkClient()
 
     // MARK: - URL
+    private let popularMoviesUrl = "https://imdb-api.com/en/API/Top250Movies/k_zcuw1ytf"
+
     private var mostPopularMovies: URL {
-        guard let url = URL(string: "https://imdb-api.com/en/API/Top250Movies/k_zcuw1ytf") else {
+        guard let url = URL(string: popularMoviesUrl) else {
             preconditionFailure("Unable to construct mostPopularMoviesUrl")
         }
         return url

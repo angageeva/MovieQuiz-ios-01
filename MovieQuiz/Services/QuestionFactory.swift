@@ -1,7 +1,9 @@
 import Foundation
 
-class QuestionFactory: QuestionFactoryProtocol {
-    let moviesLoader: MoviesLoading
+final class QuestionFactory: QuestionFactoryProtocol {
+    private let questionPhrases = ["больше", "меньше"]
+    
+    var moviesLoader: MoviesLoading?
 
     //добавления свойства с делегатом
     weak var delegate: QuestionFactoryDelegate?
@@ -9,11 +11,6 @@ class QuestionFactory: QuestionFactoryProtocol {
     //массив фильмов, загруженных с сервера
     private var movies: [MostPopularMovie] = []
     
-    init(moviesLoader: MoviesLoading, delegate: QuestionFactoryDelegate?) {
-        //self.moviesLoader = moviesLoader
-        self.delegate = delegate
-    }
-
     // Массив индексов непоказанных вопросов
     private var unshownIndexes: [Int] = []
 
@@ -25,50 +22,63 @@ class QuestionFactory: QuestionFactoryProtocol {
     func requestNextQuestion() {
         DispatchQueue.global().async { [weak self] in
             guard let self = self else { return }
-            let index = (0..<self.movies.count).randomElement() ?? 0
-            
-            guard let movie = self.movies[safe: index] else { return }
-            
-            var imageData = Data()
-            var correctAnswer: Bool
-            
-            do {
-                imageData = try Data(contentsOf: movie.imageUrl)
-            } catch {
-                print("Failed to load image")
-            }
-            
-            let rating = Float(movie.rating) ?? 0
-            let questionPhrase = ["больше","меньше"].randomElement()
-            let comparingNumber = Int.random(in: 3...10)
-            let text = "Рейтинг этого фильма \(questionPhrase!) , чем \(comparingNumber)?"
-            if questionPhrase == "больше" {
-                correctAnswer = rating > Float(comparingNumber)
-            } else {
-                correctAnswer = rating < Float(comparingNumber)
-            }
-            
-            let question = QuizQuestion(image: imageData,
-                                        text: text,
-                                        correctAnswer: correctAnswer)
-            
+            let index = unshownIndexes.randomElement() ?? 0
+            let question = nextQuestion(index: index)
+ 
+            self.unshownIndexes = unshownIndexes.filter { $0 != index }
+
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
+
                 self.delegate?.didRecieveNextQuestion(question: question)
             }
         }
     }
-    
-    func loadData() {
-        moviesLoader.loadMovies{ [weak self] result in
-            guard let self = self else { return }
-            switch result {
-            case .success(let mostPopularMovies):
-                self.movies = mostPopularMovies.items
-                self.delegate?.didLoadDataFromserver()
-            case .failure(let error):
+
+    func nextQuestion(index: Int) -> QuizQuestion? {
+        guard let movie = self.movies[safe: index] else { return nil }
+
+        let rating = Float(movie.rating) ?? 0
+        let questionPhrase = questionPhrases.randomElement()
+        let comparingNumber = Int.random(in: 6...9)
+        let text = "Рейтинг этого фильма \(questionPhrase!) , чем \(comparingNumber)?"
+
+        let isRatingBigger = rating > Float(comparingNumber)
+        let correctAnswer = questionPhrase == "больше" ? isRatingBigger : !isRatingBigger
+
+        var imageData = Data()
+        do {
+            imageData = try Data(contentsOf: movie.resizedImageURL)
+        } catch {
+            DispatchQueue.main.async {
                 self.delegate?.didFailToLoadData(with: error)
             }
         }
+
+        return QuizQuestion(image: imageData,
+                            text: text,
+                            correctAnswer: correctAnswer)
+    }
+
+    func loadData() {
+        moviesLoader?.loadMovies{ [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+
+                switch result {
+                case .success(let mostPopularMovies):
+                    self.setMoviesFromData(movies: mostPopularMovies.items)
+                case .failure(let error):
+                    self.delegate?.didFailToLoadData(with: error)
+                }
+            }
+        }
+    }
+
+    private func setMoviesFromData(movies: [MostPopularMovie]) {
+        self.movies = movies
+ 
+        refillUnshownIndexes()
+        delegate?.didLoadDataFromServer()
     }
 }

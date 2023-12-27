@@ -30,6 +30,15 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
 
     // MARK: - Private functions
 
+    func didLoadDataFromServer() {
+        hideLoadingIndicator()
+        questionFactory.requestNextQuestion()
+    }
+    
+    func didFailToLoadData(with error: Error) {
+        showNetworkError(message: error.localizedDescription)
+    }
+
     // метод конвертации, который принимает моковый вопрос и возвращает вью модель для экрана вопроса
     private func convert(model: QuizQuestion) -> QuizStepViewModel {
         let questionNumber = "\(currentQuestionIndex + 1)/\(questionsAmount)"
@@ -114,20 +123,19 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         yesButton.isEnabled = isEnabled
         noButton.isEnabled = isEnabled
     }
-    
+
     private func showLoadingIndicator() {
         activityIndicator.isHidden = false
         activityIndicator.startAnimating()
     }
-    
+
     private func hideLoadingIndicator() {
         activityIndicator.isHidden = true
     }
-    
+
     private func showNetworkError(message: String) {
-        //hideLoadingIndicator()
-        activityIndicator.isHidden = true
-        
+        hideLoadingIndicator()
+
         let model = AlertModel(title: "Ошибка",
                              message: message,
                              buttonText: "Попробовать ещё раз") { [weak self] in
@@ -138,19 +146,9 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
             
             self.questionFactory.requestNextQuestion()
         }
-        
+
         let alertPresenter = AlertPresenter(delegate: self)
-        
         alertPresenter.showResultAlert(alertModel: model)
-    }
-    
-    func didLoadDataFromserver() {
-        activityIndicator.isHidden = true
-        questionFactory.requestNextQuestion()
-    }
-    
-    func didFailToLoadData(with error: Error) {
-        showNetworkError(message: error.localizedDescription)
     }
 
     // MARK: - Actions
@@ -174,9 +172,11 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         super.viewDidLoad()
 
         questionFactory.delegate = self
-        questionFactory.refillUnshownIndexes()
-        questionFactory.requestNextQuestion()
+        questionFactory.moviesLoader = MoviesLoader()
         statisticService = StatisticServiceImplementation()
+
+        showLoadingIndicator()
+        questionFactory.loadData()
     }
 
     // MARK: - QuestionFactoryDelegate

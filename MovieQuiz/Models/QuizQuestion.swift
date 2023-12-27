@@ -1,6 +1,6 @@
 import Foundation
 
-// создание структуры вопроса
+// Структура вопроса
 struct QuizQuestion {
     // данные картинки-постера к фильму
     let image: Data
