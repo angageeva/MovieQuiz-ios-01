@@ -12,6 +12,7 @@ final class AlertPresenter {
             title: alertModel.title,
             message: alertModel.message,
             preferredStyle: .alert)
+        alert.view.accessibilityIdentifier = "Result"
         // константа с кнопкой для системного алерта, которая перезапускает игру
         let action = UIAlertAction(title: alertModel.buttonText, style: .default) { _ in alertModel.completion?()
         }
