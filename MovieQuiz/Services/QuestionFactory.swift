@@ -13,6 +13,11 @@ final class QuestionFactory: QuestionFactoryProtocol {
     
     // Массив индексов непоказанных вопросов
     private var unshownIndexes: [Int] = []
+    
+    init(moviesLoader: MoviesLoading?, delegate: QuestionFactoryDelegate?) {
+        self.moviesLoader = moviesLoader
+        self.delegate = delegate
+    }
 
     // Функция заполнения массива неиспользуемых индексов
     func refillUnshownIndexes() {
